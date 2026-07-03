@@ -10,3 +10,6 @@
 # folder
 data/
 temp/
+.snakemake/
+slurm_logs/
+jobs/
