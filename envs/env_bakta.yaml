@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - bakta=1.11.4
+  - pyhmmer=0.11.4
+  - diamond=2.1.11 

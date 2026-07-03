@@ -1,0 +1,8 @@
+name: microbench_zymohmw_basecalling-benchmarks
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - quast=5.2.0
+  - minimap2=2.24

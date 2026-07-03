@@ -1,0 +1,9 @@
+name: r_antismash_processing_env
+channels:
+  - conda-forge
+  - bioconda
+  - r
+dependencies:
+  - r-base=4.4.1
+  - r-tidyverse=2.0.0
+  - r-jsonlite=1.8.9

@@ -1,0 +1,21 @@
+metadata:
+  master_sheet: "metadata/2026-07-01_SEQID_bioactivity.csv"
+checkm2_db: "/databases/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
+gtdb_db: "/databases/GTDB/gtdbtk_packages/GTDB-TK_release232_2026_04_15/"
+bakta_db: "/home/bio.aau.dk/ur36rv/databases/2026-06-30_bakta_db/db/"
+antismash_db: "/home/bio.aau.dk/ur36rv/databases/2026-06-30_antismash_db/"
+assembly_threads:
+     10
+assembly_mb:
+     15000
+
+# QC gate applied to filtered reads before flye (see checkpoint read_qc).
+# Samples below either threshold are skipped (flye/checkm2/prokka/bakta/
+# antismash never run for them) instead of failing the whole run.
+# Observed failures in the 2026-07-01 run: 36 kb total / 1253 bp mean
+# (empty barcode), and 1.08 Mb / 91 bp mean and 2.85 Mb / 91 bp mean
+# (adapter-dimer-dominated). A healthy barcode in that same run had
+# ~524 Mb total / 1650 bp mean. Defaults below give comfortable margin
+# against the observed failures — tune as needed for your samples.
+qc_min_total_bases: 10000000
+qc_min_mean_length: 300

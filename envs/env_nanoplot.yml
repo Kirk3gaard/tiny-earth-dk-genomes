@@ -1,0 +1,10 @@
+name: microbench_zymohmw_basecalling-benchmarks
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - samtools=1.16.1
+  - nanoplot
+  - minimap2=2.28
+  - bamtools=2.5.2

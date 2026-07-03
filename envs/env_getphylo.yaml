@@ -1,0 +1,12 @@
+name: getphylo
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - diamond>=2.0.14
+  - muscle>=3.8.1551
+  - fasttree>=2.1.11
+  - pip
+  - pip:
+      - getphylo
