@@ -7,9 +7,18 @@
 *.gff
 *.gff3
 
+
 # folder
 data/
 temp/
 .snakemake/
 slurm_logs/
 jobs/
+
+
+Rplots.pdf
+envs/antismash_version.lock
+getphylo.log
+logs/
+scripts/__pycache__/
+
