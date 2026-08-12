@@ -1,3 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AFTER ANY REBUILD OF THIS ENVIRONMENT, RUN:
+#     envs/fix_antismash_env.sh --rebuild
+#
+# antiSMASH pulls in MOODS-python, whose setup.py hardcodes
+#     common_compile_args = ['-march=native', '-O3', '-fPIC', '--std=c++11']
+# so its extensions are compiled for whatever CPU performs the install, with no
+# runtime dispatch and no fallback path. An env built on an AVX-512 machine
+# crashes with SIGILL ("Illegal instruction") the moment antiSMASH imports MOODS
+# on any node without AVX-512. That cost 526 of 549 genomes on 2026-08-05.
+#
+# Setting CFLAGS/CXXFLAGS does not help — setuptools appends MOODS's own flags
+# last, and for gcc the last -march wins. fix_antismash_env.sh rebuilds MOODS
+# through compiler wrappers that append a portable baseline after MOODS's flag.
+# run_snake_claaudia.sh checks for this automatically before submitting work.
+#
+# The antiSMASH version below is pinned to a tag. It previously tracked the
+# 8-0-stable branch, which meant the version changed silently on every rebuild.
+# ─────────────────────────────────────────────────────────────────────────────
 name: antismash_latest
 channels:
   - conda-forge
@@ -37,4 +56,7 @@ dependencies:
   - yaml
   - pip
   - pip:
-    - git+https://github.com/antismash/antismash.git@8-0-stable
+    # Pinned to a tag, not the 8-0-stable branch. 8-0-4 is the latest 8.x tag as
+    # of 2026-08-07; change deliberately, and re-run all antiSMASH jobs when you
+    # do so the whole collection is analysed with one version.
+    - git+https://github.com/antismash/antismash.git@8-0-4

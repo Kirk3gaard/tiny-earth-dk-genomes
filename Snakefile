@@ -63,6 +63,65 @@ def antismash_csv_outputs(wildcards):
     return expand("temp/antismash_csv/{name}_overview.csv", name=passing_samples(wildcards))
 
 
+def assembly_qc_outputs(wildcards):
+    return expand("temp/assembly_qc/{name}.asmqc.tsv", name=passing_samples(wildcards))
+
+
+# ── Assembly-level QC gate (hard filter, tree only) ──────────────────────────
+# checkpoint assembly_qc (defined below, after checkm2) combines each sample's
+# CheckM2 completeness/contamination with its flye contig count and assembly
+# size into a single PASS/FAIL verdict.
+#
+# This gate is deliberately NOT applied to the pipeline at large. Genomes that
+# fail are still annotated and still contribute BGC results — they are only
+# kept out of getphylo, because getphylo's presence threshold means the weakest
+# genome in the set determines how many loci survive for everyone. A defensible
+# tree needs a clean input set; the BGC catalogue does not.
+def tree_samples(wildcards):
+    """
+    Samples good enough to put on the tree: passed read QC, then passed the
+    assembly QC thresholds in checkpoint assembly_qc. Calling
+    checkpoints.assembly_qc.get() forces flye + checkm2 to complete for every
+    read-QC-passing sample before the getphylo DAG is resolved.
+    """
+    passed = []
+    for name in passing_samples(wildcards):
+        qc_file = checkpoints.assembly_qc.get(sample=name).output[0]
+        with open(qc_file) as f:
+            next(f)  # header
+            fields = f.readline().rstrip("\n").split("\t")
+            if len(fields) == 7 and fields[5] == "PASS":
+                passed.append(name)
+    return passed
+
+
+def tree_prokka_outputs(wildcards):
+    return expand("temp/prokka_out/{name}", name=tree_samples(wildcards))
+
+
+def tree_assembly_inputs(wildcards):
+    return expand("temp/all_assemblies/{name}.flye.fa.gz", name=tree_samples(wildcards))
+
+
+# ── Tree source selection ────────────────────────────────────────────────────
+# Resolved at parse time so only the configured branch enters the DAG; the
+# unselected method cannot fail the run. See config.yaml for the rationale.
+TREE_METHOD = str(config.get("tree_method", "gtdbtk")).lower()
+
+if TREE_METHOD == "gtdbtk":
+    TREE_FILE = "temp/tree/gtdbtk_tree.nwk"
+elif TREE_METHOD == "getphylo":
+    TREE_FILE = "temp/getphylo_out/trees/combined_alignment.tree"
+else:
+    # Plain concatenation rather than an f-string: snakemake's Snakefile parser
+    # mishandles f-string conversions such as {x!r}, which is a parse error at
+    # line 1 of the workflow rather than a helpful message.
+    raise ValueError(
+        "config.yaml: tree_method must be 'gtdbtk' or 'getphylo', got '"
+        + TREE_METHOD + "'."
+    )
+
+
 rule all:
     input:
         expand("temp/filtered_reads/{name}.filtlong.fastq.gz", name=input_np_raw),
@@ -70,12 +129,15 @@ rule all:
         "results/qc_summary.tsv",
         flye_outputs,
         checkm2_outputs,
+        "results/assembly_qc_summary.tsv",
         "temp/gtdbtk_out",
         prokka_outputs,
         bakta_outputs,
         antismash_outputs,
         antismash_csv_outputs,
-        "temp/getphylo_out/trees/combined_alignment.tree",
+        TREE_FILE,
+        "results/tree_membership.tsv",
+        "results/antismash_failures.tsv",
         "results/aggregated_results.tsv",
         "results/phylogenetic_tree.pdf"
         
@@ -204,6 +266,105 @@ rule checkm2:
             --output-directory {output}
         """
         
+checkpoint assembly_qc:
+    # Combines CheckM2 completeness/contamination with the flye contig count
+    # and total assembly length into one PASS/FAIL verdict per sample.
+    # PASS samples are the only ones handed to getphylo (see tree_samples).
+    #
+    # Both inputs are already produced by the pipeline, so this adds no new
+    # tools and costs seconds per sample. Reading contig count and size from
+    # flye rather than CheckM2 keeps us on a column layout we control.
+    input:
+        checkm2    = "temp/checkm2/{sample}",
+        flye_info  = "temp/all_assemblies/{sample}.assembly_info.txt"
+    output:
+        "temp/assembly_qc/{sample}.asmqc.tsv"
+    threads: 1
+    resources:
+        mem_mb=1024,
+        node_type="general",
+        time="00-00:10:00",
+    params:
+        min_completeness  = config.get("asm_min_completeness", 90),
+        max_contamination = config.get("asm_max_contamination", 5),
+        max_contigs       = config.get("asm_max_contigs", 200),
+        min_genome_bp     = config.get("asm_min_genome_bp", 1500000),
+        max_genome_bp     = config.get("asm_max_genome_bp", 15000000),
+    shell:
+        """
+        mkdir -p temp/assembly_qc
+
+        # CheckM2 can exit cleanly but write an empty report for degenerate
+        # assemblies. Substituting /dev/null makes that a FAIL with an explicit
+        # reason rather than an awk crash under bash strict mode.
+        CHECKM2_TSV="{input.checkm2}/quality_report.tsv"
+        if [ ! -s "$CHECKM2_TSV" ]; then CHECKM2_TSV=/dev/null; fi
+
+        awk -F'\\t' -v OFS='\\t' \
+            -v sample="{wildcards.sample}" \
+            -v min_comp={params.min_completeness} \
+            -v max_cont={params.max_contamination} \
+            -v max_contigs={params.max_contigs} \
+            -v min_bp={params.min_genome_bp} \
+            -v max_bp={params.max_genome_bp} '
+            # flye assembly_info.txt: one row per contig, $2 = length
+            FILENAME ~ /assembly_info/ {{
+                if (FNR == 1) next
+                contigs++; total += $2; next
+            }}
+            # checkm2 quality_report.tsv: header + one data row
+            FILENAME ~ /quality_report/ {{
+                if (FNR == 1) {{
+                    for (i = 1; i <= NF; i++) {{
+                        if ($i == "Completeness")  ci = i
+                        if ($i == "Contamination") ni = i
+                    }}
+                    next
+                }}
+                if (FNR == 2 && ci && ni) {{
+                    comp = $ci + 0; cont = $ni + 0; have_checkm2 = 1
+                }}
+                next
+            }}
+            END {{
+                reason = ""
+                if (!have_checkm2)                       reason = reason "no_checkm2_report;"
+                if (have_checkm2 && comp <  min_comp)    reason = reason "completeness<" min_comp ";"
+                if (have_checkm2 && cont >= max_cont)    reason = reason "contamination>=" max_cont ";"
+                if (contigs > max_contigs)               reason = reason "contigs>" max_contigs ";"
+                if (total   < min_bp)                    reason = reason "size<" min_bp ";"
+                if (total   > max_bp)                    reason = reason "size>" max_bp ";"
+                status = (reason == "") ? "PASS" : "FAIL"
+                if (reason == "") reason = "-"
+                print "sample","completeness","contamination","contigs","total_bp","status","reason"
+                printf "%s\\t%.2f\\t%.2f\\t%d\\t%d\\t%s\\t%s\\n", \
+                       sample, comp, cont, contigs, total, status, reason
+            }}' "{input.flye_info}" "$CHECKM2_TSV" > {output}
+        """
+
+
+rule assembly_qc_summary:
+    # One table of every assembly's QC verdict. Serves three purposes:
+    # a human-readable record of what was excluded and why, the source the
+    # getphylo rule reads to pick its seed genome, and an input to
+    # compile_results.R so exclusions are documented alongside the results.
+    input:
+        assembly_qc_outputs
+    output:
+        "results/assembly_qc_summary.tsv"
+    threads: 1
+    resources:
+        mem_mb=1024,
+        node_type="general",
+        time="00-00:10:00",
+    shell:
+        """
+        mkdir -p results
+        head -n1 {input[0]} > {output}
+        for f in {input}; do tail -n +2 "$f" >> {output}; done
+        """
+
+
 rule gtdb:
     input:
         flye_outputs,
@@ -299,10 +460,53 @@ rule antismash:
         time="00-05:00:00",
     params:
         db=config.get("antismash_db")
+    log:
+        "logs/antismash/{sample}.log"
     conda:
         "envs/env_antismash.yaml"
     shell:
         """
+        mkdir -p logs/antismash {output}
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== antismash {wildcards.sample} started $(date -Is) ==="
+
+        # Record where this ran. On 2026-08-05, 526 of 549 jobs died instantly
+        # with SIGILL because MOODS (a pip dependency of antiSMASH) hardcodes
+        # -march=native in its setup.py and had been compiled on an AVX-512
+        # machine; jobs landing on nodes without AVX-512 executed an illegal
+        # instruction on import. Diagnosing that took days because nothing
+        # recorded which node a job ran on, or whether the CPU could run the
+        # binaries. Two lines here would have made it obvious.
+        HOST=$(hostname)
+        CPU=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')
+        HAS_AVX512=$(grep -qm1 avx512f /proc/cpuinfo && echo yes || echo no)
+        echo "host=$HOST"
+        echo "cpu=$CPU"
+        echo "avx512f=$HAS_AVX512"
+
+        # Fail fast and unmistakably if the interpreter cannot even load the
+        # extension modules on this node, rather than burning a 16-cpu slot.
+        if ! python -c "import MOODS.scan" 2>/dev/null; then
+            echo "ERROR: 'import MOODS.scan' crashes on $HOST (avx512f=$HAS_AVX512)." >&2
+            echo "The antismash conda env contains binaries this CPU cannot run." >&2
+            echo "Rebuild MOODS on the oldest available architecture:" >&2
+            echo "  pip install --force-reinstall --no-binary :all: --no-cache-dir MOODS-python==<version>" >&2
+            printf 'MOODS import crashed on %s (avx512f=%s) at %s\\n' \
+                "$HOST" "$HAS_AVX512" "$(date -Is)" > "{output}/ANTISMASH_FAILED"
+            exit 0
+        fi
+
+        # antiSMASH failures are recorded rather than fatal. A single genome
+        # that antiSMASH cannot parse should not block a 550-genome run: two
+        # genomes have consistently died with
+        #   ValueError: Cannot convert protein positions without protein length
+        #               when sequence start coordinate is ambiguous
+        # which is antiSMASH choking on CDS features with fuzzy coordinates
+        # (e.g. <1..500) that bakta emits at contig edges. Genomes that fail
+        # get an ANTISMASH_FAILED marker in their output directory; downstream
+        # rules treat them as having no BGC data and compile_results reports
+        # them, so they are visible rather than silently missing.
+        set +e
         antismash --databases {params.db} \
         --output-dir {output} \
         --asf \
@@ -316,8 +520,76 @@ rule antismash:
         -c {threads} \
         --genefinding-tool prodigal \
         "{input}/{wildcards.sample}.gbff"
+        STATUS=$?
+        set -e
+
+        if [ "$STATUS" -ne 0 ]; then
+            echo "WARNING: antismash exited $STATUS for {wildcards.sample}; recording as failed." >&2
+            printf 'antismash exited %s at %s\\n' "$STATUS" "$(date -Is)" \
+                > "{output}/ANTISMASH_FAILED"
+        elif [ ! -f "{output}/regions.js" ] && [ ! -f "{output}/index.html" ]; then
+            echo "WARNING: antismash exited 0 for {wildcards.sample} but produced no result files; recording as failed." >&2
+            printf 'antismash produced no output at %s\\n' "$(date -Is)" \
+                > "{output}/ANTISMASH_FAILED"
+        fi
+
+        echo "=== antismash {wildcards.sample} finished $(date -Is) ==="
         """
-        
+
+
+rule antismash_failures:
+    # One table of the genomes antiSMASH could not process, so failures are
+    # visible in results/ rather than only in the cluster logs.
+    input:
+        antismash_outputs
+    output:
+        "results/antismash_failures.tsv"
+    threads: 1
+    resources:
+        mem_mb=1024,
+        node_type="general",
+        time="00-00:10:00",
+    params:
+        max_frac = config.get("antismash_max_failure_fraction", 0.1)
+    log:
+        "logs/antismash_failures.log"
+    shell:
+        """
+        mkdir -p results logs
+        exec > >(tee -a "{log}") 2>&1
+        printf 'sample\\treason\\n' > {output}
+        TOTAL=0
+        for d in {input}; do
+            TOTAL=$((TOTAL + 1))
+            if [ -f "$d/ANTISMASH_FAILED" ]; then
+                printf '%s\\t%s\\n' "$(basename "$d")" \
+                    "$(tr -d '\\n' < "$d/ANTISMASH_FAILED")" >> {output}
+            fi
+        done
+        FAILED=$(($(wc -l < {output}) - 1))
+        echo "antismash: $FAILED of $TOTAL genomes failed"
+
+        # Individual failures are tolerated so one unparseable genome cannot
+        # block the run. A large fraction failing is a different thing entirely
+        # — an environment or cluster problem — and must not pass as success.
+        # On 2026-08-05, 526 of 549 died with exit 132 (SIGILL) and the run
+        # still reported completion, leaving 17 of 376 tree genomes with BGC
+        # data. Tune with antismash_max_failure_fraction in config.yaml.
+        if [ "$TOTAL" -gt 0 ]; then
+            awk -v f="$FAILED" -v t="$TOTAL" -v m={params.max_frac} '
+                BEGIN {{
+                    frac = f / t
+                    printf "failure fraction: %.1f%% (threshold %.0f%%)\\n", frac*100, m*100
+                    exit (frac > m) ? 1 : 0
+                }}' || {{
+                echo "ERROR: too many antismash failures. See {output} for the list" >&2
+                echo "and logs/antismash/<sample>.log for individual errors." >&2
+                exit 1
+            }}
+        fi
+        """
+
+
 rule antismash_processing:
     input:
         data=rules.antismash.output
@@ -336,32 +608,348 @@ rule antismash_processing:
     script:
         "scripts/process_antismash.R"
         
-rule getphylo:
+# ── bac120 alignment for the tree ────────────────────────────────────────────
+# NOT reused from rule gtdb. `classify_wf` runs a skani ANI pre-screen and then
+# REMOVES every genome that got a species-level ANI match from the identify
+# step (gtdbtk/main.py: identify(..., process_classified_species=False) drops
+# them). Those genomes therefore never enter align/ and never appear in
+# gtdbtk.bac120.user_msa.fasta.gz. On the 2026-08-04 run that left 52 of 549
+# genomes in the MSA and a 42-tip tree.
+#
+# identify + align run standalone have no ANI screen, so every genome gets its
+# markers found and aligned. This also skips pplacer entirely — the memory-hungry
+# part — and leaves the existing classification in temp/gtdbtk_out untouched.
+rule stage_tree_genomes:
+    # gtdbtk needs a directory of genomes. Symlink just the assembly-QC-passing
+    # ones, keeping the original {sample}.flye.fa.gz names so the genome ids
+    # gtdbtk reports match what subset_msa.py expects.
     input:
-        prokka_outputs
+        tree_assembly_inputs
+    output:
+        directory("temp/tree/genomes")
+    threads: 1
+    resources:
+        mem_mb=1024,
+        node_type="general",
+        time="00-00:20:00",
+    log:
+        "logs/stage_tree_genomes.log"
+    shell:
+        """
+        mkdir -p logs
+        exec > >(tee -a "{log}") 2>&1
+        rm -rf {output}
+        mkdir -p {output}
+        for f in {input}; do
+            ln -s "$(readlink -f "$f")" "{output}/$(basename "$f")"
+        done
+        echo "staged $(ls {output} | wc -l) genomes for the bac120 alignment"
+        """
+
+
+rule gtdbtk_identify:
+    input:
+        genomes = "temp/tree/genomes"
+    output:
+        directory("temp/tree/gtdbtk_msa/identify")
+    threads: 32
+    resources:
+        mem_mb=64000,
+        node_type="general",
+        time="01-00:00:00",
+        tmpdir="/tmp",
+    params:
+        db = config.get("gtdb_db")
+    log:
+        "logs/gtdbtk_identify.log"
+    conda:
+        "envs/env_gtdbtk.yml"
+    shell:
+        """
+        mkdir -p logs
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== gtdbtk_identify started $(date -Is) ==="
+        export GTDBTK_DATA_PATH="{params.db}"
+
+        echo "genomes to process: $(ls {input.genomes} | wc -l)"
+        rm -rf temp/tree/gtdbtk_msa/identify
+        gtdbtk identify \
+            --genome_dir {input.genomes} \
+            --out_dir temp/tree/gtdbtk_msa \
+            --extension fa.gz \
+            --cpus {threads}
+        echo "=== gtdbtk_identify finished $(date -Is) ==="
+        """
+
+
+rule gtdbtk_align:
+    input:
+        identify = "temp/tree/gtdbtk_msa/identify"
+    output:
+        directory("temp/tree/gtdbtk_msa/align")
+    threads: 16
+    resources:
+        mem_mb=64000,
+        node_type="general",
+        time="00-12:00:00",
+        tmpdir="/tmp",
+    params:
+        db = config.get("gtdb_db")
+    log:
+        "logs/gtdbtk_align.log"
+    conda:
+        "envs/env_gtdbtk.yml"
+    shell:
+        """
+        mkdir -p logs
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== gtdbtk_align started $(date -Is) ==="
+        export GTDBTK_DATA_PATH="{params.db}"
+
+        # --skip_gtdb_refs: we want an alignment of our isolates only, not the
+        # thousands of GTDB reference genomes. user_msa is unaffected either
+        # way, but skipping them makes this far lighter.
+        rm -rf temp/tree/gtdbtk_msa/align
+        gtdbtk align \
+            --identify_dir temp/tree/gtdbtk_msa \
+            --out_dir temp/tree/gtdbtk_msa \
+            --skip_gtdb_refs \
+            --cpus {threads}
+        echo "=== gtdbtk_align finished $(date -Is) ==="
+        """
+
+
+rule subset_bac120_msa:
+    # Subset the bac120 alignment to the assembly-QC-passing genomes and rename
+    # records to bare SEQID so tip labels line up with aggregated_results.tsv.
+    input:
+        align_dir    = "temp/tree/gtdbtk_msa/align",
+        identify_dir = "temp/tree/gtdbtk_msa/identify",
+        asm_qc       = "results/assembly_qc_summary.tsv"
+    output:
+        msa        = "temp/tree/bac120_subset.faa",
+        membership = "results/tree_membership.tsv"
+    threads: 1
+    resources:
+        mem_mb=8192,
+        node_type="general",
+        time="00-00:30:00",
+    params:
+        gtdbtk_dir    = "temp/tree/gtdbtk_msa",
+        min_markers   = config.get("tree_min_bac120_markers", 0),
+        # gtdbtk ran with --extension fa.gz over {sample}.flye.fa.gz, so it
+        # reports genome ids as "{sample}.flye". Strip that to recover SEQID.
+        genome_suffix = ".flye",
+        # Fail if the alignment covers far less of the QC-passing set than
+        # expected. This is a broken-input check, not a quality filter: the
+        # 2026-08-04 run silently produced a 42-tip tree from a 376-genome
+        # collection because classify_wf's ANI screen had excluded almost
+        # everything from the MSA, and nothing objected.
+        min_coverage  = config.get("tree_min_msa_coverage", 0.8),
+    log:
+        "logs/subset_bac120_msa.log"
+    # Invoked as a plain command rather than via `script:`, and with no conda
+    # environment. The `script:` mechanism extends sys.path into snakemake's
+    # site-packages and unpickles the snakemake object using the rule's conda
+    # Python; when that Python differs from snakemake's own — as it does for the
+    # pinned gtdbtk env — it fails in the preamble before any user code runs, so
+    # the log stays empty and the failure cannot be diagnosed. subset_msa.py
+    # needs only the standard library, so the interpreter running snakemake
+    # (guaranteed present, since the jobscript invokes snakemake) is sufficient.
+    shell:
+        """
+        mkdir -p logs temp/tree results
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== subset_bac120_msa started $(date -Is) ==="
+        echo "interpreter: $(command -v python3 || echo 'python3 NOT FOUND')"
+
+        python3 scripts/subset_msa.py \
+            --gtdbtk-dir "{params.gtdbtk_dir}" \
+            --assembly-qc "{input.asm_qc}" \
+            --out-msa "{output.msa}" \
+            --out-membership "{output.membership}" \
+            --min-markers {params.min_markers} \
+            --genome-suffix "{params.genome_suffix}" \
+            --min-coverage {params.min_coverage}
+
+        echo "=== subset_bac120_msa finished $(date -Is) ==="
+        """
+
+
+rule infer_tree_gtdbtk:
+    # FastTree (WAG + gamma, SH-like support) over the bac120 subset via
+    # `gtdbtk infer`. Minutes rather than hours, because the expensive part —
+    # marker identification and alignment — was already done by classify_wf.
+    input:
+        msa = "temp/tree/bac120_subset.faa"
+    output:
+        tree = "temp/tree/gtdbtk_tree.nwk"
+    threads: 16
+    resources:
+        mem_mb=32768,
+        node_type="general",
+        time="00-08:00:00",
+        tmpdir="/tmp",
+    params:
+        db        = config.get("gtdb_db"),
+        prot_model = config.get("tree_prot_model", "WAG"),
+    log:
+        "logs/infer_tree_gtdbtk.log"
+    conda:
+        "envs/env_gtdbtk.yml"
+    shell:
+        """
+        mkdir -p logs temp/tree
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== infer_tree_gtdbtk started $(date -Is) ==="
+
+        export GTDBTK_DATA_PATH="{params.db}"
+
+        N_SEQS=$(grep -c '^>' {input.msa})
+        echo "inferring tree from $N_SEQS genomes"
+
+        rm -rf temp/tree/infer
+        gtdbtk infer \
+            --msa_file {input.msa} \
+            --out_dir temp/tree/infer \
+            --prot_model {params.prot_model} \
+            --gamma \
+            --cpus {threads} \
+            --prefix gtdbtk
+
+        # `gtdbtk infer` writes [prefix].unrooted.tree, but its exact depth in
+        # the output directory has moved between versions. Locate it rather than
+        # hardcoding a path, and fail loudly if there is not exactly one.
+        mapfile -t TREES < <(find temp/tree/infer -name '*.unrooted.tree' -type f)
+        echo "found ${{#TREES[@]}} candidate tree file(s): ${{TREES[*]:-none}}"
+        if [ "${{#TREES[@]}}" -ne 1 ]; then
+            echo "ERROR: expected exactly one *.unrooted.tree under temp/tree/infer." >&2
+            exit 1
+        fi
+        cp "${{TREES[0]}}" {output.tree}
+
+        echo "tip count in final tree: $(tr ',' '\\n' < {output.tree} | grep -c ':' || true)"
+        echo "=== infer_tree_gtdbtk finished $(date -Is) ==="
+        """
+
+
+rule getphylo:
+    # Only genomes that passed the assembly QC gate reach this rule. getphylo
+    # keeps a locus only if it is single-copy and present in >= `presence`
+    # percent of the inputs, so every marginal genome in the set lowers the
+    # locus count for all of them. Hard-filtering upstream is what makes a
+    # meaningful presence threshold affordable.
+    input:
+        prokka_dirs = tree_prokka_outputs,
+        asm_qc      = "results/assembly_qc_summary.tsv"
     output:
         "temp/getphylo_out/trees/combined_alignment.tree"
     threads: 10
     resources:
-        mem_mb=8192,
+        mem_mb=16384,
         node_type="general",
-        time="00-05:00:00",
+        time="00-12:00:00",
+    params:
+        presence  = config.get("getphylo_presence", 95),
+        min_loci  = config.get("getphylo_min_loci", 50),
+        max_loci  = config.get("getphylo_max_loci", 1000),
+        find      = config.get("getphylo_find", 2000),
+        log_level = config.get("getphylo_log_level", "INFO"),
+    log:
+        "logs/getphylo.log"
     conda:
         "envs/env_getphylo.yaml"
     shell:
         """
-        rm -rf temp/getphylo_out
+        # Capture everything to a declared log. profile/config.yaml sets
+        # show-failed-logs: True, so on failure snakemake prints this file into
+        # the main slurm_logs/*.err — which is what makes a failure here
+        # diagnosable without digging out the per-job cluster log. tee keeps
+        # the output in the cluster log as well.
+        mkdir -p logs
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== getphylo rule started $(date -Is) ==="
+
+        # Keep the previous attempt's diagnostics. thresholding_data.csv and
+        # presence_absence_table.csv are written before getphylo raises
+        # InsufficientLociError, and they are the only direct evidence of which
+        # genomes and loci caused a failure. The old rule deleted them.
+        rm -rf temp/getphylo_out.prev
+        if [ -d temp/getphylo_out ]; then
+            mv temp/getphylo_out temp/getphylo_out.prev
+        fi
 
         WRAPPER=$(mktemp)
         printf '#!/bin/bash\\nif [ $# -eq 0 ]; then exit 0; fi\\nexec fasttree "$@"\\n' > "$WRAPPER"
         chmod +x "$WRAPPER"
 
+        rm -rf temp/getphylo_in
         mkdir -p temp/getphylo_in
-        for d in {input}; do
+        for d in {input.prokka_dirs}; do
             sample=$(basename "$d")
             cp "$d/$sample.gbk" temp/getphylo_in/
         done
-        getphylo -g "temp/getphylo_in/*.gbk" -o temp/getphylo_out -c {threads} --fasttree "$WRAPPER"
+
+        N_GENOMES=$(ls temp/getphylo_in/*.gbk | wc -l)
+        echo "getphylo: $N_GENOMES genomes passed the assembly QC gate."
+        if [ "$N_GENOMES" -lt 3 ]; then
+            echo "ERROR: getphylo needs at least 3 genomes, got $N_GENOMES." >&2
+            echo "See results/assembly_qc_summary.tsv for per-genome verdicts." >&2
+            exit 1
+        fi
+
+        # Pin the seed instead of letting getphylo take glob[0]. All candidate
+        # loci are drawn from the seed, so it should be the best genome in the
+        # set: highest completeness, then lowest contamination, then fewest
+        # contigs, then smallest (the getphylo docs note smaller seeds run
+        # faster, and compact genomes are richer in genuinely core loci).
+        #
+        # Deliberately a single awk pass rather than `sort ... | head -n1`.
+        # Snakemake runs shell blocks under `set -euo pipefail`; `head` exits
+        # after one line, `sort` then dies of SIGPIPE (exit 141) writing into
+        # the closed pipe, and pipefail turns that into a rule failure with no
+        # error message. It is size-dependent — harmless for a handful of
+        # genomes, fires ~95% of the time once sort's output passes a few kB.
+        SEED_SAMPLE=$(awk -F'\\t' '
+            NR == 1     {{ next }}
+            $6 != "PASS" {{ next }}
+            {{
+                comp = $2 + 0; cont = $3 + 0; ctg = $4 + 0; sz = $5 + 0
+                better = 0
+                if (!found)                   better = 1
+                else if (comp >  b_comp)      better = 1
+                else if (comp == b_comp) {{
+                    if      (cont <  b_cont)  better = 1
+                    else if (cont == b_cont) {{
+                        if      (ctg <  b_ctg) better = 1
+                        else if (ctg == b_ctg && sz < b_sz) better = 1
+                    }}
+                }}
+                if (better) {{
+                    found = 1; best = $1
+                    b_comp = comp; b_cont = cont; b_ctg = ctg; b_sz = sz
+                }}
+            }}
+            END {{ if (found) print best }}' {input.asm_qc})
+        SEED="temp/getphylo_in/${{SEED_SAMPLE}}.gbk"
+        if [ -z "$SEED_SAMPLE" ] || [ ! -f "$SEED" ]; then
+            echo "ERROR: could not select a seed genome from {input.asm_qc}." >&2
+            exit 1
+        fi
+        echo "getphylo: using $SEED_SAMPLE as seed genome."
+
+        getphylo \
+            -g "temp/getphylo_in/*.gbk" \
+            -o temp/getphylo_out \
+            -c {threads} \
+            -s "$SEED" \
+            -p {params.presence} \
+            -minl {params.min_loci} \
+            -maxl {params.max_loci} \
+            -f {params.find} \
+            -l {params.log_level} \
+            --fasttree "$WRAPPER"
+
         rm -rf temp/getphylo_in "$WRAPPER"
         """
 
@@ -372,13 +960,22 @@ rule compile_results:
         gtdbtk_summary    = "temp/gtdbtk_out",
         bakta_dirs        = bakta_outputs,
         antismash_overviews = antismash_csv_outputs,
-        qc_summary        = "results/qc_summary.tsv"
+        qc_summary        = "results/qc_summary.tsv",
+        asm_qc_summary    = "results/assembly_qc_summary.tsv",
+        tree_membership   = "results/tree_membership.tsv",
+        antismash_fails   = "results/antismash_failures.tsv"
     output:
-        tsv = "results/aggregated_results.tsv"
+        tsv     = "results/aggregated_results.tsv",
+        # Written by compile_results.R alongside the main table. Previously
+        # undeclared, which meant nothing in the DAG knew they existed.
+        mibig   = "results/antismash_mibig_summary.tsv",
+        product = "results/antismash_product_summary.tsv"
     resources:
         mem_mb=8192,
         node_type="general",
         time="00-01:00:00",
+    log:
+        "logs/compile_results.log"
     conda:
         "envs/R-main.yaml"
     script:
@@ -386,14 +983,20 @@ rule compile_results:
         
 rule plot_tree:
     input:
-        tree     = "temp/getphylo_out/trees/combined_alignment.tree",
-        metadata = "results/aggregated_results.tsv"
+        tree     = TREE_FILE,
+        metadata = "results/aggregated_results.tsv",
+        # Produced as side outputs of compile_results; declared so the script
+        # reads them from snakemake@input rather than hardcoded paths.
+        mibig    = "results/antismash_mibig_summary.tsv",
+        product  = "results/antismash_product_summary.tsv"
     output:
         plot = "results/phylogenetic_tree.pdf"
     resources:
-        mem_mb=4096,
+        mem_mb=8192,
         node_type="general",
         time="00-01:00:00",
+    log:
+        "logs/plot_tree.log"
     conda:
         "envs/R-main.yaml"
     script:

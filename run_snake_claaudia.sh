@@ -18,6 +18,19 @@ conda activate /home/bio.aau.dk/ur36rv/.conda/envs/tiny_earth_denmark
 
 snakemake --use-conda --conda-frontend conda --conda-create-envs-only --cores 1 --latency-wait 30
 
+# Guard against the MOODS/-march=native trap before committing anything to the
+# cluster. MOODS compiles for the CPU that builds it, with no runtime fallback,
+# so an env built on an AVX-512 machine makes antiSMASH die with SIGILL on every
+# node that lacks AVX-512. On 2026-08-05 that wasted 526 of 549 jobs and was
+# invisible until the results were inspected days later. The check inspects the
+# binaries rather than running them, so it is valid from the submit node.
+if ! bash envs/fix_antismash_env.sh --check; then
+    echo ""
+    echo "Refusing to submit: the antismash environment is not portable." >&2
+    echo "Run 'envs/fix_antismash_env.sh --rebuild', then re-run this script." >&2
+    exit 1
+fi
+
 snakemake --profile profile/
 
 # cluster command not in snakemake 8... downgrading

@@ -1,5 +1,5 @@
 metadata:
-  master_sheet: "metadata/2026-07-01_SEQID_bioactivity.csv"
+  master_sheet: "metadata/2026-08-07_SEQID_bioactivity.csv"
 checkm2_db: "/databases/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
 gtdb_db: "/databases/GTDB/gtdbtk_packages/GTDB-TK_release232_2026_04_15/"
 bakta_db: "/home/bio.aau.dk/ur36rv/databases/2026-06-30_bakta_db/db/"
@@ -19,3 +19,67 @@ assembly_mb:
 # against the observed failures — tune as needed for your samples.
 qc_min_total_bases: 10000000
 qc_min_mean_length: 300
+
+# ── Assembly QC gate (see checkpoint assembly_qc) ────────────────────────────
+# Applied AFTER flye + checkm2. This is a hard filter: genomes that fail are
+# excluded from getphylo entirely, so the tree is built only from genomes we
+# are willing to defend. They are NOT excluded from checkm2/prokka/bakta/
+# antismash — their BGC and annotation results still appear in
+# results/aggregated_results.tsv, flagged with In_tree = FALSE.
+#
+# Thresholds are MIMAG "high-quality draft" and match the "High quality
+# genome" definition already used by GenomeQ in scripts/compile_results.R.
+# With good nanopore data these should exclude only a handful of genomes;
+# if a large fraction fails, check results/assembly_qc_summary.tsv before
+# loosening anything — that is a signal about the run, not the thresholds.
+asm_min_completeness: 90      # CheckM2 Completeness, percent
+asm_max_contamination: 5      # CheckM2 Contamination, percent (strictly less than)
+asm_max_contigs: 20          # contig count from flye assembly_info.txt
+asm_min_genome_bp: 1500000    # 1.5 Mb — below this it is not a whole bacterial genome
+asm_max_genome_bp: 15000000   # 15 Mb — above this suggests a mixed/metagenomic bin
+
+# ── Phylogenetic tree source ─────────────────────────────────────────────────
+# gtdbtk   — subset the bac120 MSA that gtdbtk classify_wf already produced
+#            (temp/gtdbtk_out/align/gtdbtk.bac120.user_msa.fasta.gz) down to
+#            the assembly-QC-passing genomes, then infer with `gtdbtk infer`.
+#            The bac120 markers are a curated, published, universal single-copy
+#            set, so the "no locus is present in enough genomes" failure mode
+#            that breaks getphylo on a taxonomically broad set cannot occur.
+#            The alignment is already computed, so this costs one FastTree run.
+# getphylo — the original de novo singleton search. Kept for comparison; it is
+#            not in the DAG unless selected here, so it cannot fail the run.
+tree_method: gtdbtk
+
+# Optional extra gate on bac120 marker recovery for tree inclusion, out of 120.
+# 0 disables it, which is the default: gtdbtk's own align step already drops
+# genomes with less than --min_perc_aa (10%) of amino acids in the MSA, and
+# those exclusions are recorded in results/tree_membership.tsv. Raise this to
+# e.g. 80 or 100 if the tree shows genomes on implausibly long branches.
+tree_min_bac120_markers: 0
+
+# Sanity check, not a quality filter: fail if fewer than this fraction of
+# assembly-QC-passing genomes appear in the bac120 MSA. The 2026-08-04 run
+# produced a 42-tip tree from 376 QC-passing genomes without complaint, because
+# the MSA had come from classify_wf, whose ANI pre-screen excludes every
+# ANI-classifiable genome from the alignment. Rules gtdbtk_identify and
+# gtdbtk_align now build the MSA without that screen. Set to 0 to disable.
+tree_min_msa_coverage: 0.8
+
+# antiSMASH failures are recorded rather than fatal, so one unparseable genome
+# cannot block a 550-genome run. But a mass failure is an environment problem,
+# not a data problem, and must not pass as success: on 2026-08-05, 526 of 549
+# genomes died with exit 132 (SIGILL) and the pipeline still reported
+# completion. Above this fraction, rule antismash_failures errors out.
+antismash_max_failure_fraction: 0.1
+
+# ── getphylo (only used when tree_method: getphylo) ───────────────────────────
+# getphylo keeps a locus only if it is single-copy AND present in at least
+# `presence` percent of the input genomes. The default of 100 means a single
+# genome missing one gene removes that locus for everyone, which is what
+# produced "The number of loci selected are below the defined threshold"
+# on the 2026-07-16 run (~470 genomes, zero surviving loci).
+getphylo_presence: 95         # percent of genomes a locus must be present in
+getphylo_min_loci: 50         # fail loudly rather than build a tree from 2 loci
+getphylo_max_loci: 1000       # getphylo default; stop searching once reached
+getphylo_find: 2000           # cap candidate singletons drawn from the seed
+getphylo_log_level: INFO      # getphylo defaults to ERROR, which hides the loci counts

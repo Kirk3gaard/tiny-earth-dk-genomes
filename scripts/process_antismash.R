@@ -9,10 +9,29 @@ cluster_blast_path <- snakemake@output[["cluster_blast_path"]]
 known_cblast_path  <- snakemake@output[["known_cblast_path"]]
 areas_path         <- snakemake@output[["areas_path"]]
 
-# ── Load JSON ─────────────────────────────────────────────────────────────────
+# ── Handle genomes antiSMASH could not process ────────────────────────────────
+# rule antismash records a crash as an ANTISMASH_FAILED marker rather than
+# failing the whole run, so a genome antiSMASH cannot parse does not block the
+# other several hundred. Emit the same empty tables used for "no BGC detected"
+# so downstream aggregation is uniform; results/antismash_failures.tsv is the
+# record of which genomes these were.
+failed_marker <- file.path(antismash_dir, "ANTISMASH_FAILED")
 json_file <- file.path(antismash_dir, paste0(sample_id, ".json"))
-if (!file.exists(json_file)) {
-  stop("antiSMASH JSON not found: ", json_file)
+
+if (file.exists(failed_marker) || !file.exists(json_file)) {
+  reason <- if (file.exists(failed_marker)) {
+    paste(readLines(failed_marker, warn = FALSE), collapse = " ")
+  } else {
+    paste0("antiSMASH JSON not found: ", json_file)
+  }
+  message("[", sample_id, "] antiSMASH did not produce usable output (", reason,
+          "); writing empty tables.")
+  empty_df <- tibble()
+  write_delim(empty_df, file = overview_path,      delim = ";")
+  write_delim(empty_df, file = cluster_blast_path, delim = ";")
+  write_delim(empty_df, file = known_cblast_path,  delim = ";")
+  write_delim(empty_df, file = areas_path,         delim = ";")
+  quit(save = "no", status = 0)
 }
 
 message("[", sample_id, "] Loading antiSMASH JSON...")
