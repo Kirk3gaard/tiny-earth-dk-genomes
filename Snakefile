@@ -144,9 +144,6 @@ def flye_info_outputs(wildcards):
 def checkm2_outputs(wildcards):
     return expand("temp/checkm2/{name}", name=passing_samples(wildcards))
 
-def prokka_outputs(wildcards):
-    return expand("temp/prokka_out/{name}", name=passing_samples(wildcards))
-
 def bakta_outputs(wildcards):
     return expand("temp/bakta_out/{name}", name=passing_samples(wildcards))
 
@@ -163,20 +160,20 @@ def assembly_qc_outputs(wildcards):
 
 # ── Assembly-level QC gate (hard filter, tree only) ──────────────────────────
 # checkpoint assembly_qc (defined below, after checkm2) combines each sample's
-# CheckM2 completeness/contamination with its flye contig count and assembly
-# size into a single PASS/FAIL verdict.
+# CheckM2 completeness/contamination with its contig count and assembly size
+# into a single PASS/FAIL verdict.
 #
 # This gate is deliberately NOT applied to the pipeline at large. Genomes that
-# fail are still annotated and still contribute BGC results — they are only
-# kept out of getphylo, because getphylo's presence threshold means the weakest
-# genome in the set determines how many loci survive for everyone. A defensible
-# tree needs a clean input set; the BGC catalogue does not.
+# fail are still annotated and still contribute BGC results; they are only kept
+# off the tree. Branch lengths and topology are only as trustworthy as the
+# weakest genome contributing to the alignment, so the tree gets a clean input
+# set. The BGC catalogue does not need one.
 def tree_samples(wildcards):
     """
-    Samples good enough to put on the tree: passed read QC, then passed the
-    assembly QC thresholds in checkpoint assembly_qc. Calling
-    checkpoints.assembly_qc.get() forces flye + checkm2 to complete for every
-    read-QC-passing sample before the getphylo DAG is resolved.
+    Samples good enough to put on the tree: passed read QC (or were imported as
+    finished assemblies), then passed the assembly QC thresholds in checkpoint
+    assembly_qc. Calling checkpoints.assembly_qc.get() forces flye + checkm2 to
+    complete for every candidate before the tree branch of the DAG is resolved.
     """
     passed = []
     for name in passing_samples(wildcards):
@@ -189,31 +186,22 @@ def tree_samples(wildcards):
     return passed
 
 
-def tree_prokka_outputs(wildcards):
-    return expand("temp/prokka_out/{name}", name=tree_samples(wildcards))
-
-
 def tree_assembly_inputs(wildcards):
     return expand("temp/all_assemblies/{name}.flye.fa.gz", name=tree_samples(wildcards))
 
 
-# ── Tree source selection ────────────────────────────────────────────────────
-# Resolved at parse time so only the configured branch enters the DAG; the
-# unselected method cannot fail the run. See config.yaml for the rationale.
-TREE_METHOD = str(config.get("tree_method", "gtdbtk")).lower()
-
-if TREE_METHOD == "gtdbtk":
-    TREE_FILE = "temp/tree/gtdbtk_tree.nwk"
-elif TREE_METHOD == "getphylo":
-    TREE_FILE = "temp/getphylo_out/trees/combined_alignment.tree"
-else:
-    # Plain concatenation rather than an f-string: snakemake's Snakefile parser
-    # mishandles f-string conversions such as {x!r}, which is a parse error at
-    # line 1 of the workflow rather than a helpful message.
-    raise ValueError(
-        "config.yaml: tree_method must be 'gtdbtk' or 'getphylo', got '"
-        + TREE_METHOD + "'."
-    )
+# ── Tree ─────────────────────────────────────────────────────────────────────
+# Built from the GTDB-Tk bac120 marker alignment: stage_tree_genomes ->
+# gtdbtk_identify -> gtdbtk_align -> subset_bac120_msa -> infer_tree_gtdbtk.
+#
+# This replaced getphylo, which was removed on 2026-08-07. getphylo searched for
+# single-copy orthologues de novo and required each locus to be present in a
+# high percentage of genomes; across a taxonomically broad soil isolate
+# collection nothing survived that threshold, and it never produced a tree here
+# (three runs, all InsufficientLociError). bac120 is a curated universal marker
+# set, so that failure mode cannot occur, and classify_wf has already done the
+# expensive part.
+TREE_FILE = "temp/tree/gtdbtk_tree.nwk"
 
 
 rule all:
@@ -225,7 +213,6 @@ rule all:
         checkm2_outputs,
         "results/assembly_qc_summary.tsv",
         "temp/gtdbtk_out",
-        prokka_outputs,
         bakta_outputs,
         antismash_outputs,
         antismash_csv_outputs,
@@ -423,9 +410,9 @@ rule checkm2:
         """
 
 checkpoint assembly_qc:
-    # Combines CheckM2 completeness/contamination with the flye contig count
-    # and total assembly length into one PASS/FAIL verdict per sample.
-    # PASS samples are the only ones handed to getphylo (see tree_samples).
+    # Combines CheckM2 completeness/contamination with the contig count and
+    # total assembly length into one PASS/FAIL verdict per sample.
+    # PASS samples are the only ones that reach the tree (see tree_samples).
     #
     # Both inputs are already produced by the pipeline, so this adds no new
     # tools and costs seconds per sample. Reading contig count and size from
@@ -500,10 +487,10 @@ checkpoint assembly_qc:
 
 
 rule assembly_qc_summary:
-    # One table of every assembly's QC verdict. Serves three purposes:
-    # a human-readable record of what was excluded and why, the source the
-    # getphylo rule reads to pick its seed genome, and an input to
-    # compile_results.R so exclusions are documented alongside the results.
+    # One table of every assembly's QC verdict. Serves two purposes: a
+    # human-readable record of what was excluded and why, and an input to both
+    # subset_bac120_msa (which genomes may go on the tree) and
+    # compile_results.R (so exclusions are documented alongside the results).
     input:
         assembly_qc_outputs
     output:
@@ -586,35 +573,11 @@ rule gtdb:
         echo "=== gtdb classify_wf finished $(date -Is) ==="
         """
 
-rule prokka:
-    input:
-        asm="temp/all_assemblies/{sample}.flye.fa.gz",
-    output:
-        directory("temp/prokka_out/{sample}")
-    threads: 8
-    resources:
-        mem_mb=lambda wc, input: max(5 * input.size_mb, 10240),
-        node_type="general",
-        time="00-05:00:00",
-    conda:
-        "envs/env_prokka.yml"
-    shell:
-        """
-        # Decompress to a regular file in the output directory's parent folder
-        gzip -dc {input.asm} > "temp/prokka_out/{wildcards.sample}_temp.fa"
-
-        # Run Prokka on the temporary file
-        prokka "temp/prokka_out/{wildcards.sample}_temp.fa" \
-            --kingdom Bacteria \
-            --outdir {output} \
-            --force \
-            --prefix {wildcards.sample} \
-            --cpus {threads}
-
-        # Clean up the temporary unzipped file
-        rm "temp/prokka_out/{wildcards.sample}_temp.fa"
-        """
-
+# rule prokka was removed on 2026-08-07. Its only consumer was getphylo, which
+# is also gone; bakta provides the annotation the pipeline actually uses (the
+# .gbff feeding antiSMASH, and the rRNA/tRNA counts in compile_results). It had
+# continued to run on every genome because rule all requested it directly —
+# 549 jobs at 8 threads, ~515 CPU-hours per run, producing output nothing read.
 rule bakta:
     input:
         asm="temp/all_assemblies/{sample}.flye.fa.gz",
@@ -1029,125 +992,13 @@ rule infer_tree_gtdbtk:
         """
 
 
-rule getphylo:
-    # Only genomes that passed the assembly QC gate reach this rule. getphylo
-    # keeps a locus only if it is single-copy and present in >= `presence`
-    # percent of the inputs, so every marginal genome in the set lowers the
-    # locus count for all of them. Hard-filtering upstream is what makes a
-    # meaningful presence threshold affordable.
-    input:
-        prokka_dirs = tree_prokka_outputs,
-        asm_qc      = "results/assembly_qc_summary.tsv"
-    output:
-        "temp/getphylo_out/trees/combined_alignment.tree"
-    threads: 10
-    resources:
-        mem_mb=16384,
-        node_type="general",
-        time="00-12:00:00",
-    params:
-        presence  = config.get("getphylo_presence", 95),
-        min_loci  = config.get("getphylo_min_loci", 50),
-        max_loci  = config.get("getphylo_max_loci", 1000),
-        find      = config.get("getphylo_find", 2000),
-        log_level = config.get("getphylo_log_level", "INFO"),
-    log:
-        "logs/getphylo.log"
-    conda:
-        "envs/env_getphylo.yaml"
-    shell:
-        """
-        # Capture everything to a declared log. profile/config.yaml sets
-        # show-failed-logs: True, so on failure snakemake prints this file into
-        # the main slurm_logs/*.err — which is what makes a failure here
-        # diagnosable without digging out the per-job cluster log. tee keeps
-        # the output in the cluster log as well.
-        mkdir -p logs
-        exec > >(tee -a "{log}") 2>&1
-        echo "=== getphylo rule started $(date -Is) ==="
-
-        # Keep the previous attempt's diagnostics. thresholding_data.csv and
-        # presence_absence_table.csv are written before getphylo raises
-        # InsufficientLociError, and they are the only direct evidence of which
-        # genomes and loci caused a failure. The old rule deleted them.
-        rm -rf temp/getphylo_out.prev
-        if [ -d temp/getphylo_out ]; then
-            mv temp/getphylo_out temp/getphylo_out.prev
-        fi
-
-        WRAPPER=$(mktemp)
-        printf '#!/bin/bash\\nif [ $# -eq 0 ]; then exit 0; fi\\nexec fasttree "$@"\\n' > "$WRAPPER"
-        chmod +x "$WRAPPER"
-
-        rm -rf temp/getphylo_in
-        mkdir -p temp/getphylo_in
-        for d in {input.prokka_dirs}; do
-            sample=$(basename "$d")
-            cp "$d/$sample.gbk" temp/getphylo_in/
-        done
-
-        N_GENOMES=$(ls temp/getphylo_in/*.gbk | wc -l)
-        echo "getphylo: $N_GENOMES genomes passed the assembly QC gate."
-        if [ "$N_GENOMES" -lt 3 ]; then
-            echo "ERROR: getphylo needs at least 3 genomes, got $N_GENOMES." >&2
-            echo "See results/assembly_qc_summary.tsv for per-genome verdicts." >&2
-            exit 1
-        fi
-
-        # Pin the seed instead of letting getphylo take glob[0]. All candidate
-        # loci are drawn from the seed, so it should be the best genome in the
-        # set: highest completeness, then lowest contamination, then fewest
-        # contigs, then smallest (the getphylo docs note smaller seeds run
-        # faster, and compact genomes are richer in genuinely core loci).
-        #
-        # Deliberately a single awk pass rather than `sort ... | head -n1`.
-        # Snakemake runs shell blocks under `set -euo pipefail`; `head` exits
-        # after one line, `sort` then dies of SIGPIPE (exit 141) writing into
-        # the closed pipe, and pipefail turns that into a rule failure with no
-        # error message. It is size-dependent — harmless for a handful of
-        # genomes, fires ~95% of the time once sort's output passes a few kB.
-        SEED_SAMPLE=$(awk -F'\\t' '
-            NR == 1     {{ next }}
-            $6 != "PASS" {{ next }}
-            {{
-                comp = $2 + 0; cont = $3 + 0; ctg = $4 + 0; sz = $5 + 0
-                better = 0
-                if (!found)                   better = 1
-                else if (comp >  b_comp)      better = 1
-                else if (comp == b_comp) {{
-                    if      (cont <  b_cont)  better = 1
-                    else if (cont == b_cont) {{
-                        if      (ctg <  b_ctg) better = 1
-                        else if (ctg == b_ctg && sz < b_sz) better = 1
-                    }}
-                }}
-                if (better) {{
-                    found = 1; best = $1
-                    b_comp = comp; b_cont = cont; b_ctg = ctg; b_sz = sz
-                }}
-            }}
-            END {{ if (found) print best }}' {input.asm_qc})
-        SEED="temp/getphylo_in/${{SEED_SAMPLE}}.gbk"
-        if [ -z "$SEED_SAMPLE" ] || [ ! -f "$SEED" ]; then
-            echo "ERROR: could not select a seed genome from {input.asm_qc}." >&2
-            exit 1
-        fi
-        echo "getphylo: using $SEED_SAMPLE as seed genome."
-
-        getphylo \
-            -g "temp/getphylo_in/*.gbk" \
-            -o temp/getphylo_out \
-            -c {threads} \
-            -s "$SEED" \
-            -p {params.presence} \
-            -minl {params.min_loci} \
-            -maxl {params.max_loci} \
-            -f {params.find} \
-            -l {params.log_level} \
-            --fasttree "$WRAPPER"
-
-        rm -rf temp/getphylo_in "$WRAPPER"
-        """
+# rule getphylo was removed on 2026-08-07, replaced by the bac120 tree above.
+# It searched for single-copy orthologues de novo and required each locus to be
+# present in a high percentage of the input genomes. Across a taxonomically
+# broad soil-isolate collection nothing cleared that bar: every run ended in
+# InsufficientLociError, even after hard-filtering the input set and lowering
+# the presence threshold to 95%. It never produced a tree in this project.
+# Recover it from git history if a de novo marker search is ever wanted.
 
 rule compile_results:
     input:

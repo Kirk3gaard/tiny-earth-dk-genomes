@@ -21,11 +21,11 @@ qc_min_total_bases: 10000000
 qc_min_mean_length: 300
 
 # ── Assembly QC gate (see checkpoint assembly_qc) ────────────────────────────
-# Applied AFTER flye + checkm2. This is a hard filter: genomes that fail are
-# excluded from getphylo entirely, so the tree is built only from genomes we
-# are willing to defend. They are NOT excluded from checkm2/prokka/bakta/
-# antismash — their BGC and annotation results still appear in
-# results/aggregated_results.tsv, flagged with In_tree = FALSE.
+# Applied AFTER assembly + checkm2. This is a hard filter: genomes that fail are
+# kept off the tree, so it is built only from genomes we are willing to defend.
+# They are NOT excluded from checkm2/bakta/antismash — their BGC and annotation
+# results still appear in results/aggregated_results.tsv, flagged with
+# In_bac120_tree = FALSE and a Tree_exclusion_reason.
 #
 # Thresholds are MIMAG "high-quality draft" and match the "High quality
 # genome" definition already used by GenomeQ in scripts/compile_results.R.
@@ -38,17 +38,12 @@ asm_max_contigs: 20          # contig count from flye assembly_info.txt
 asm_min_genome_bp: 1500000    # 1.5 Mb — below this it is not a whole bacterial genome
 asm_max_genome_bp: 15000000   # 15 Mb — above this suggests a mixed/metagenomic bin
 
-# ── Phylogenetic tree source ─────────────────────────────────────────────────
-# gtdbtk   — subset the bac120 MSA that gtdbtk classify_wf already produced
-#            (temp/gtdbtk_out/align/gtdbtk.bac120.user_msa.fasta.gz) down to
-#            the assembly-QC-passing genomes, then infer with `gtdbtk infer`.
-#            The bac120 markers are a curated, published, universal single-copy
-#            set, so the "no locus is present in enough genomes" failure mode
-#            that breaks getphylo on a taxonomically broad set cannot occur.
-#            The alignment is already computed, so this costs one FastTree run.
-# getphylo — the original de novo singleton search. Kept for comparison; it is
-#            not in the DAG unless selected here, so it cannot fail the run.
-tree_method: gtdbtk
+# ── Phylogenetic tree ────────────────────────────────────────────────────────
+# The tree is built from the GTDB-Tk bac120 marker alignment: a curated,
+# published, universal single-copy marker set. gtdbtk_identify and gtdbtk_align
+# produce the alignment, subset_bac120_msa restricts it to QC-passing genomes,
+# and gtdbtk infer builds the tree. The tree_method switch and the getphylo
+# alternative were removed on 2026-08-07; getphylo never produced a tree here.
 
 # Optional extra gate on bac120 marker recovery for tree inclusion, out of 120.
 # 0 disables it, which is the default: gtdbtk's own align step already drops
@@ -71,15 +66,3 @@ tree_min_msa_coverage: 0.8
 # genomes died with exit 132 (SIGILL) and the pipeline still reported
 # completion. Above this fraction, rule antismash_failures errors out.
 antismash_max_failure_fraction: 0.1
-
-# ── getphylo (only used when tree_method: getphylo) ───────────────────────────
-# getphylo keeps a locus only if it is single-copy AND present in at least
-# `presence` percent of the input genomes. The default of 100 means a single
-# genome missing one gene removes that locus for everyone, which is what
-# produced "The number of loci selected are below the defined threshold"
-# on the 2026-07-16 run (~470 genomes, zero surviving loci).
-getphylo_presence: 95         # percent of genomes a locus must be present in
-getphylo_min_loci: 50         # fail loudly rather than build a tree from 2 loci
-getphylo_max_loci: 1000       # getphylo default; stop searching once reached
-getphylo_find: 2000           # cap candidate singletons drawn from the seed
-getphylo_log_level: INFO      # getphylo defaults to ERROR, which hides the loci counts

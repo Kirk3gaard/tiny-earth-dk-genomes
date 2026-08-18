@@ -21,7 +21,7 @@ library(ggtext)
 
 # ── Snakemake I/O ─────────────────────────────────────────────────────────────
 # Paths come from the rule rather than being hardcoded, so the tree source can
-# be switched via `tree_method` in config.yaml without editing this script.
+# change without editing this script.
 tree_path    <- snakemake@input$tree
 meta_path    <- snakemake@input$metadata
 mibig_path   <- snakemake@input$mibig
