@@ -455,6 +455,97 @@ PBI66098.barcode93	PASS	-	TRUE	113	0	TRUE	-
 PBI66098.barcode94	PASS	-	TRUE	115	0	TRUE	-
 PBI66098.barcode95	PASS	-	TRUE	112	0	TRUE	-
 PBI66098.barcode96	PASS	-	TRUE	113	0	TRUE	-
+PBI66519.barcode01	PASS	-	TRUE	107	0	TRUE	-
+PBI66519.barcode02	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode03	PASS	-	TRUE	113	0	TRUE	-
+PBI66519.barcode04	PASS	-	TRUE	118	2	TRUE	-
+PBI66519.barcode05	FAIL	contamination>=5;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode06	PASS	-	TRUE	120	0	TRUE	-
+PBI66519.barcode07	PASS	-	TRUE	118	2	TRUE	-
+PBI66519.barcode08	PASS	-	TRUE	113	0	TRUE	-
+PBI66519.barcode09	PASS	-	TRUE	112	0	TRUE	-
+PBI66519.barcode10	PASS	-	TRUE	110	0	TRUE	-
+PBI66519.barcode11	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode12	PASS	-	TRUE	108	0	TRUE	-
+PBI66519.barcode13	PASS	-	TRUE	111	0	TRUE	-
+PBI66519.barcode14	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode15	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode16	PASS	-	TRUE	110	0	TRUE	-
+PBI66519.barcode17	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode18	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode20	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode21	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode23	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode24	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode25	PASS	-	TRUE	119	0	TRUE	-
+PBI66519.barcode26	FAIL	contamination>=5;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode27	FAIL	completeness<90;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode28	PASS	-	TRUE	119	0	TRUE	-
+PBI66519.barcode29	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode30	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode31	FAIL	completeness<90;contigs>20;size<1500000;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode32	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode33	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode34	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode35	PASS	-	TRUE	112	0	TRUE	-
+PBI66519.barcode36	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode37	FAIL	completeness<90;contigs>20;size<1500000;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode38	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode39	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode40	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode41	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode42	PASS	-	TRUE	113	0	TRUE	-
+PBI66519.barcode43	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode44	PASS	-	TRUE	117	2	TRUE	-
+PBI66519.barcode45	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode46	FAIL	completeness<90;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode47	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode48	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode49	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode50	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode51	FAIL	completeness<90;contamination>=5;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode52	FAIL	completeness<90;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode53	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode54	FAIL	completeness<90;size<1500000;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode55	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode56	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode57	FAIL	completeness<90;contamination>=5;contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode58	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode60	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode61	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode62	PASS	-	TRUE	119	0	TRUE	-
+PBI66519.barcode63	PASS	-	TRUE	114	3	TRUE	-
+PBI66519.barcode64	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode65	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode66	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode67	PASS	-	TRUE	114	0	TRUE	-
+PBI66519.barcode68	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode69	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode70	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode71	PASS	-	TRUE	112	0	TRUE	-
+PBI66519.barcode72	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode73	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode74	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode76	PASS	-	TRUE	118	1	TRUE	-
+PBI66519.barcode77	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode79	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode80	PASS	-	TRUE	118	2	TRUE	-
+PBI66519.barcode81	PASS	-	TRUE	110	0	TRUE	-
+PBI66519.barcode82	PASS	-	TRUE	110	0	TRUE	-
+PBI66519.barcode83	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode84	PASS	-	TRUE	115	0	TRUE	-
+PBI66519.barcode85	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode86	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode87	PASS	-	TRUE	116	0	TRUE	-
+PBI66519.barcode88	PASS	-	TRUE	109	0	TRUE	-
+PBI66519.barcode89	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode90	PASS	-	TRUE	110	0	TRUE	-
+PBI66519.barcode91	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
+PBI66519.barcode92	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode93	PASS	-	TRUE	120	0	TRUE	-
+PBI66519.barcode94	PASS	-	TRUE	117	0	TRUE	-
+PBI66519.barcode95	PASS	-	TRUE	107	0	TRUE	-
+PBI66519.barcode96	FAIL	contigs>20;	NA			FALSE	failed_assembly_qc
 PBK85545.barcode01	PASS	-	TRUE	110	0	TRUE	-
 PBK85545.barcode02	PASS	-	TRUE	119	0	TRUE	-
 PBK85545.barcode03	PASS	-	TRUE	116	0	TRUE	-

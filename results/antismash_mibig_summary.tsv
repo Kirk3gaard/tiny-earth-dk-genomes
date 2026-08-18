@@ -1732,6 +1732,395 @@ PBI66098.barcode96	Other	14
 PBI66098.barcode96	RiPP	2
 PBI66098.barcode96	Saccharide	2
 PBI66098.barcode96	Terpene	4
+PBI66519.barcode01	BGC not in MiBiG database	9
+PBI66519.barcode01	Other	4
+PBI66519.barcode02	BGC not in MiBiG database	6
+PBI66519.barcode02	NRP	2
+PBI66519.barcode02	Other	2
+PBI66519.barcode02	RiPP	1
+PBI66519.barcode02	Terpene+Other	1
+PBI66519.barcode03	BGC not in MiBiG database	4
+PBI66519.barcode03	NRP	1
+PBI66519.barcode03	Other	2
+PBI66519.barcode03	Saccharide	1
+PBI66519.barcode04	BGC not in MiBiG database	13
+PBI66519.barcode04	NRP	1
+PBI66519.barcode04	Other	2
+PBI66519.barcode05	BGC not in MiBiG database	2
+PBI66519.barcode05	NRP	2
+PBI66519.barcode05	Other	5
+PBI66519.barcode05	Terpene	2
+PBI66519.barcode06	BGC not in MiBiG database	3
+PBI66519.barcode06	NRP	2
+PBI66519.barcode06	Other	3
+PBI66519.barcode06	RiPP	1
+PBI66519.barcode06	Saccharide	1
+PBI66519.barcode07	BGC not in MiBiG database	3
+PBI66519.barcode07	NRP	3
+PBI66519.barcode07	Other	3
+PBI66519.barcode07	Terpene	1
+PBI66519.barcode08	BGC not in MiBiG database	4
+PBI66519.barcode08	NRP	2
+PBI66519.barcode08	Other	1
+PBI66519.barcode08	Terpene+Other	1
+PBI66519.barcode09	BGC not in MiBiG database	4
+PBI66519.barcode09	NRP	3
+PBI66519.barcode09	Other	2
+PBI66519.barcode09	Terpene+Other	1
+PBI66519.barcode10	BGC not in MiBiG database	7
+PBI66519.barcode10	NRP	2
+PBI66519.barcode10	Other	3
+PBI66519.barcode11	BGC not in MiBiG database	7
+PBI66519.barcode11	NRP	5
+PBI66519.barcode11	Other	1
+PBI66519.barcode12	BGC not in MiBiG database	5
+PBI66519.barcode12	NRP	4
+PBI66519.barcode12	Other	3
+PBI66519.barcode13	BGC not in MiBiG database	5
+PBI66519.barcode13	NRP	4
+PBI66519.barcode13	Other	8
+PBI66519.barcode13	Saccharide	2
+PBI66519.barcode13	Terpene	1
+PBI66519.barcode14	BGC not in MiBiG database	6
+PBI66519.barcode14	NRP	4
+PBI66519.barcode14	NRP+Other	2
+PBI66519.barcode14	Other	14
+PBI66519.barcode14	Saccharide	3
+PBI66519.barcode14	Terpene	1
+PBI66519.barcode15	BGC not in MiBiG database	5
+PBI66519.barcode15	NRP	5
+PBI66519.barcode15	NRP+Other	2
+PBI66519.barcode15	Other	15
+PBI66519.barcode15	Saccharide	3
+PBI66519.barcode15	Terpene	2
+PBI66519.barcode16	BGC not in MiBiG database	6
+PBI66519.barcode16	NRP	2
+PBI66519.barcode16	Other	3
+PBI66519.barcode17	BGC not in MiBiG database	6
+PBI66519.barcode17	NRP	14
+PBI66519.barcode17	NRP+Saccharide	1
+PBI66519.barcode17	Other	9
+PBI66519.barcode17	RiPP	3
+PBI66519.barcode17	Saccharide	2
+PBI66519.barcode17	Terpene	2
+PBI66519.barcode18	BGC not in MiBiG database	8
+PBI66519.barcode18	NRP	6
+PBI66519.barcode18	Other	11
+PBI66519.barcode18	RiPP	4
+PBI66519.barcode18	Saccharide	2
+PBI66519.barcode18	Terpene	1
+PBI66519.barcode20	BGC not in MiBiG database	7
+PBI66519.barcode20	NRP	5
+PBI66519.barcode20	Other	3
+PBI66519.barcode20	Terpene+Other	1
+PBI66519.barcode21	BGC not in MiBiG database	4
+PBI66519.barcode21	NRP	8
+PBI66519.barcode21	Other	13
+PBI66519.barcode21	RiPP	2
+PBI66519.barcode21	Saccharide	1
+PBI66519.barcode21	Terpene	2
+PBI66519.barcode23	BGC not in MiBiG database	8
+PBI66519.barcode23	NRP	6
+PBI66519.barcode23	Other	11
+PBI66519.barcode23	RiPP	4
+PBI66519.barcode23	Saccharide	2
+PBI66519.barcode23	Terpene	1
+PBI66519.barcode24	BGC not in MiBiG database	8
+PBI66519.barcode24	NRP	6
+PBI66519.barcode24	Other	11
+PBI66519.barcode24	RiPP	4
+PBI66519.barcode24	Saccharide	2
+PBI66519.barcode24	Terpene	1
+PBI66519.barcode25	BGC not in MiBiG database	4
+PBI66519.barcode25	NRP	1
+PBI66519.barcode25	Other	1
+PBI66519.barcode27	Other	1
+PBI66519.barcode27	RiPP	1
+PBI66519.barcode28	BGC not in MiBiG database	4
+PBI66519.barcode28	NRP	1
+PBI66519.barcode28	Other	1
+PBI66519.barcode28	Terpene	1
+PBI66519.barcode29	BGC not in MiBiG database	1
+PBI66519.barcode29	NRP	3
+PBI66519.barcode29	NRP+Other	1
+PBI66519.barcode29	Other	5
+PBI66519.barcode29	RiPP	2
+PBI66519.barcode29	Saccharide	2
+PBI66519.barcode29	Terpene	1
+PBI66519.barcode30	BGC not in MiBiG database	3
+PBI66519.barcode30	NRP	12
+PBI66519.barcode30	Other	17
+PBI66519.barcode30	RiPP	2
+PBI66519.barcode30	Saccharide	2
+PBI66519.barcode30	Terpene	3
+PBI66519.barcode32	BGC not in MiBiG database	4
+PBI66519.barcode32	NRP	4
+PBI66519.barcode32	NRP+Other	1
+PBI66519.barcode32	NRP+Saccharide	2
+PBI66519.barcode32	Other	7
+PBI66519.barcode32	RiPP	1
+PBI66519.barcode33	BGC not in MiBiG database	1
+PBI66519.barcode33	NRP	7
+PBI66519.barcode33	Other	11
+PBI66519.barcode33	RiPP	3
+PBI66519.barcode33	Saccharide	3
+PBI66519.barcode33	Terpene	2
+PBI66519.barcode34	Other	1
+PBI66519.barcode34	Saccharide	4
+PBI66519.barcode34	Terpene	1
+PBI66519.barcode35	BGC not in MiBiG database	4
+PBI66519.barcode35	NRP	3
+PBI66519.barcode35	Other	1
+PBI66519.barcode35	Terpene+Other	1
+PBI66519.barcode36	BGC not in MiBiG database	7
+PBI66519.barcode36	NRP	6
+PBI66519.barcode36	Other	1
+PBI66519.barcode38	BGC not in MiBiG database	7
+PBI66519.barcode38	NRP	3
+PBI66519.barcode38	Other	2
+PBI66519.barcode38	Terpene+Other	1
+PBI66519.barcode39	BGC not in MiBiG database	7
+PBI66519.barcode39	NRP	9
+PBI66519.barcode39	NRP+Other	1
+PBI66519.barcode39	NRP+Saccharide	1
+PBI66519.barcode39	Other	18
+PBI66519.barcode39	RiPP	5
+PBI66519.barcode39	Saccharide	3
+PBI66519.barcode39	Terpene	2
+PBI66519.barcode40	BGC not in MiBiG database	6
+PBI66519.barcode40	NRP	8
+PBI66519.barcode40	NRP+Saccharide	1
+PBI66519.barcode40	Other	17
+PBI66519.barcode40	RiPP	2
+PBI66519.barcode40	Saccharide	1
+PBI66519.barcode40	Terpene	2
+PBI66519.barcode41	BGC not in MiBiG database	7
+PBI66519.barcode41	NRP	12
+PBI66519.barcode41	NRP+Saccharide	1
+PBI66519.barcode41	Other	10
+PBI66519.barcode41	RiPP	2
+PBI66519.barcode41	Saccharide	2
+PBI66519.barcode41	Terpene	1
+PBI66519.barcode42	BGC not in MiBiG database	2
+PBI66519.barcode42	NRP	3
+PBI66519.barcode42	Other	2
+PBI66519.barcode42	Terpene+Other	1
+PBI66519.barcode43	RiPP	1
+PBI66519.barcode44	BGC not in MiBiG database	7
+PBI66519.barcode44	NRP	1
+PBI66519.barcode44	Other	2
+PBI66519.barcode44	Saccharide	1
+PBI66519.barcode45	BGC not in MiBiG database	6
+PBI66519.barcode45	NRP	5
+PBI66519.barcode45	Other	4
+PBI66519.barcode45	RiPP	1
+PBI66519.barcode47	BGC not in MiBiG database	4
+PBI66519.barcode47	NRP	4
+PBI66519.barcode47	Other	4
+PBI66519.barcode47	Saccharide	1
+PBI66519.barcode47	Terpene	1
+PBI66519.barcode48	BGC not in MiBiG database	6
+PBI66519.barcode48	NRP	4
+PBI66519.barcode48	Other	3
+PBI66519.barcode48	Saccharide	1
+PBI66519.barcode48	Terpene	1
+PBI66519.barcode49	BGC not in MiBiG database	4
+PBI66519.barcode49	NRP	1
+PBI66519.barcode49	Terpene	1
+PBI66519.barcode49	Terpene+Other	1
+PBI66519.barcode50	BGC not in MiBiG database	5
+PBI66519.barcode50	NRP	4
+PBI66519.barcode50	Other	5
+PBI66519.barcode50	Saccharide	1
+PBI66519.barcode50	Terpene	1
+PBI66519.barcode55	BGC not in MiBiG database	8
+PBI66519.barcode55	NRP	6
+PBI66519.barcode55	Other	1
+PBI66519.barcode55	RiPP	1
+PBI66519.barcode55	Terpene+Other	1
+PBI66519.barcode56	BGC not in MiBiG database	5
+PBI66519.barcode56	NRP	4
+PBI66519.barcode56	Other	4
+PBI66519.barcode56	Saccharide	1
+PBI66519.barcode56	Terpene	1
+PBI66519.barcode58	BGC not in MiBiG database	1
+PBI66519.barcode58	NRP	1
+PBI66519.barcode58	Other	3
+PBI66519.barcode58	Saccharide	1
+PBI66519.barcode58	Terpene	3
+PBI66519.barcode60	BGC not in MiBiG database	6
+PBI66519.barcode60	NRP	5
+PBI66519.barcode60	NRP+Other	1
+PBI66519.barcode60	Other	11
+PBI66519.barcode60	Saccharide	2
+PBI66519.barcode60	Terpene	3
+PBI66519.barcode61	BGC not in MiBiG database	8
+PBI66519.barcode61	NRP	5
+PBI66519.barcode61	NRP+Other	2
+PBI66519.barcode61	Other	14
+PBI66519.barcode61	Saccharide	3
+PBI66519.barcode61	Terpene	2
+PBI66519.barcode62	BGC not in MiBiG database	8
+PBI66519.barcode62	NRP	3
+PBI66519.barcode62	Other	3
+PBI66519.barcode62	Saccharide	1
+PBI66519.barcode63	BGC not in MiBiG database	4
+PBI66519.barcode63	NRP	4
+PBI66519.barcode63	NRP+Other	2
+PBI66519.barcode63	Other	14
+PBI66519.barcode63	Saccharide	3
+PBI66519.barcode63	Terpene	2
+PBI66519.barcode64	BGC not in MiBiG database	6
+PBI66519.barcode64	NRP	7
+PBI66519.barcode64	Other	5
+PBI66519.barcode64	Saccharide	2
+PBI66519.barcode64	Terpene	1
+PBI66519.barcode65	BGC not in MiBiG database	3
+PBI66519.barcode65	NRP	6
+PBI66519.barcode65	Other	3
+PBI66519.barcode65	Saccharide	1
+PBI66519.barcode65	Terpene	2
+PBI66519.barcode66	BGC not in MiBiG database	1
+PBI66519.barcode66	NRP	2
+PBI66519.barcode66	Other	10
+PBI66519.barcode66	RiPP	3
+PBI66519.barcode66	Saccharide	3
+PBI66519.barcode66	Terpene	2
+PBI66519.barcode67	BGC not in MiBiG database	4
+PBI66519.barcode67	NRP	8
+PBI66519.barcode67	Other	12
+PBI66519.barcode67	RiPP	2
+PBI66519.barcode67	Saccharide	1
+PBI66519.barcode67	Terpene	2
+PBI66519.barcode68	BGC not in MiBiG database	5
+PBI66519.barcode68	NRP	6
+PBI66519.barcode68	Other	1
+PBI66519.barcode68	Terpene+Other	1
+PBI66519.barcode69	BGC not in MiBiG database	3
+PBI66519.barcode69	NRP	2
+PBI66519.barcode69	Other	1
+PBI66519.barcode69	RiPP	1
+PBI66519.barcode69	Terpene+Other	1
+PBI66519.barcode71	BGC not in MiBiG database	4
+PBI66519.barcode71	NRP	3
+PBI66519.barcode71	Other	2
+PBI66519.barcode71	Terpene+Other	1
+PBI66519.barcode72	BGC not in MiBiG database	3
+PBI66519.barcode72	NRP	6
+PBI66519.barcode72	NRP+Other	1
+PBI66519.barcode72	Other	19
+PBI66519.barcode72	RiPP	2
+PBI66519.barcode72	Saccharide	2
+PBI66519.barcode72	Terpene	1
+PBI66519.barcode73	BGC not in MiBiG database	3
+PBI66519.barcode73	NRP	9
+PBI66519.barcode73	NRP+Other	1
+PBI66519.barcode73	Other	5
+PBI66519.barcode73	RiPP	3
+PBI66519.barcode73	Saccharide	2
+PBI66519.barcode73	Terpene	1
+PBI66519.barcode74	BGC not in MiBiG database	3
+PBI66519.barcode74	NRP	3
+PBI66519.barcode74	Other	5
+PBI66519.barcode74	RiPP	1
+PBI66519.barcode74	Saccharide	2
+PBI66519.barcode74	Terpene	2
+PBI66519.barcode76	BGC not in MiBiG database	9
+PBI66519.barcode76	NRP	9
+PBI66519.barcode76	Other	3
+PBI66519.barcode76	Terpene+Other	1
+PBI66519.barcode77	BGC not in MiBiG database	5
+PBI66519.barcode77	NRP	8
+PBI66519.barcode77	NRP+Saccharide	1
+PBI66519.barcode77	Other	20
+PBI66519.barcode77	RiPP	2
+PBI66519.barcode77	Saccharide	1
+PBI66519.barcode77	Terpene	1
+PBI66519.barcode79	BGC not in MiBiG database	3
+PBI66519.barcode79	NRP	8
+PBI66519.barcode79	Other	20
+PBI66519.barcode79	RiPP	5
+PBI66519.barcode79	Saccharide	2
+PBI66519.barcode79	Terpene	2
+PBI66519.barcode80	BGC not in MiBiG database	2
+PBI66519.barcode80	NRP	1
+PBI66519.barcode80	Other	2
+PBI66519.barcode80	RiPP	1
+PBI66519.barcode80	Terpene	1
+PBI66519.barcode81	BGC not in MiBiG database	7
+PBI66519.barcode81	NRP	2
+PBI66519.barcode81	Other	3
+PBI66519.barcode82	BGC not in MiBiG database	9
+PBI66519.barcode82	NRP	3
+PBI66519.barcode82	Other	3
+PBI66519.barcode83	BGC not in MiBiG database	6
+PBI66519.barcode83	NRP	4
+PBI66519.barcode83	NRP+Other	2
+PBI66519.barcode83	Other	14
+PBI66519.barcode83	Saccharide	3
+PBI66519.barcode83	Terpene	2
+PBI66519.barcode84	BGC not in MiBiG database	6
+PBI66519.barcode84	NRP	8
+PBI66519.barcode84	NRP+Saccharide	1
+PBI66519.barcode84	Other	20
+PBI66519.barcode84	RiPP	2
+PBI66519.barcode84	Saccharide	1
+PBI66519.barcode84	Terpene	1
+PBI66519.barcode85	BGC not in MiBiG database	3
+PBI66519.barcode85	NRP	10
+PBI66519.barcode85	Other	13
+PBI66519.barcode85	RiPP	2
+PBI66519.barcode85	Saccharide	2
+PBI66519.barcode85	Terpene	2
+PBI66519.barcode86	BGC not in MiBiG database	7
+PBI66519.barcode86	NRP	2
+PBI66519.barcode86	Other	3
+PBI66519.barcode87	BGC not in MiBiG database	3
+PBI66519.barcode87	NRP	5
+PBI66519.barcode87	NRP+Other	1
+PBI66519.barcode87	Other	14
+PBI66519.barcode87	RiPP	4
+PBI66519.barcode87	Saccharide	4
+PBI66519.barcode87	Terpene	3
+PBI66519.barcode88	BGC not in MiBiG database	8
+PBI66519.barcode88	NRP	2
+PBI66519.barcode88	Other	3
+PBI66519.barcode89	BGC not in MiBiG database	4
+PBI66519.barcode89	NRP	4
+PBI66519.barcode89	NRP+Other	2
+PBI66519.barcode89	Other	14
+PBI66519.barcode89	Saccharide	3
+PBI66519.barcode89	Terpene	2
+PBI66519.barcode90	BGC not in MiBiG database	6
+PBI66519.barcode90	NRP	2
+PBI66519.barcode90	Other	3
+PBI66519.barcode91	BGC not in MiBiG database	4
+PBI66519.barcode91	NRP	4
+PBI66519.barcode91	NRP+Other	2
+PBI66519.barcode91	Other	15
+PBI66519.barcode91	Saccharide	3
+PBI66519.barcode91	Terpene	2
+PBI66519.barcode92	BGC not in MiBiG database	3
+PBI66519.barcode92	NRP	5
+PBI66519.barcode92	Other	14
+PBI66519.barcode92	RiPP	1
+PBI66519.barcode92	Saccharide	5
+PBI66519.barcode92	Terpene	2
+PBI66519.barcode93	BGC not in MiBiG database	3
+PBI66519.barcode94	BGC not in MiBiG database	3
+PBI66519.barcode94	NRP	5
+PBI66519.barcode94	Other	14
+PBI66519.barcode94	RiPP	1
+PBI66519.barcode94	Saccharide	5
+PBI66519.barcode94	Terpene	2
+PBI66519.barcode95	BGC not in MiBiG database	10
+PBI66519.barcode95	Other	4
+PBI66519.barcode96	BGC not in MiBiG database	5
+PBI66519.barcode96	NRP	6
+PBI66519.barcode96	Other	12
+PBI66519.barcode96	RiPP	3
+PBI66519.barcode96	Saccharide	2
+PBI66519.barcode96	Terpene	1
 PBK85545.barcode01	BGC not in MiBiG database	6
 PBK85545.barcode01	NRP	3
 PBK85545.barcode01	Other	3

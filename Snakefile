@@ -1,12 +1,103 @@
 configfile: "config.yaml"
 
-# Input files
-(input_np_raw,) = glob_wildcards("data/{filename}.fastq.gz")
-(input_np_asm,) = glob_wildcards("all_assemblies/{filename}.flye.fa.gz")
+import os
+import re
 
-# input files
-# raw nanopore data 1 fastq.gz file per sample
-# alternative input 1 assembly per sample
+# ── Input discovery ──────────────────────────────────────────────────────────
+# Two entry points:
+#   data/{sample}.fastq.gz                    raw nanopore reads -> filtlong -> flye
+#   data/input_assemblies/{sample}.fa.gz      a finished assembly, reads unavailable
+#   data/input_assemblies/{sample}.flye.fa.gz (the original naming, also accepted)
+#
+# Pre-made assemblies are imported into temp/all_assemblies/ next to flye's
+# output and treated identically from checkm2 onwards — same QC gate, same
+# annotation, same tree.
+#
+# NOTE ON THE DIRECTORY NAME: the import source used to be a top-level
+# all_assemblies/, one "temp/" away from the pipeline's own output directory
+# temp/all_assemblies/. Genomes dropped into the output directory by hand were
+# never discovered (nothing globs it) while still being swept up by gtdbtk's
+# --genome_dir, so they were classified but never assembled, QC'd, annotated or
+# placed on the tree. The source is now data/input_assemblies/, which cannot be
+# confused with an output path, and both the old location and stray files in
+# temp/all_assemblies/ are warned about below.
+(input_np_raw,) = glob_wildcards("data/{filename}.fastq.gz")
+
+IMPORT_DIR = "data/input_assemblies"
+
+
+def _discover_assemblies():
+    """Map sample name -> path of a pre-made assembly under data/input_assemblies/."""
+    sources = {}
+    for name in glob_wildcards(IMPORT_DIR + "/{f}.flye.fa.gz").f:
+        sources[name] = IMPORT_DIR + "/" + name + ".flye.fa.gz"
+    for name in glob_wildcards(IMPORT_DIR + "/{f}.fa.gz").f:
+        # {f}.fa.gz also matches the .flye.fa.gz files, leaving ".flye" on the
+        # captured name; those are already recorded above.
+        if name.endswith(".flye"):
+            continue
+        sources.setdefault(name, IMPORT_DIR + "/" + name + ".fa.gz")
+    return sources
+
+
+ASSEMBLY_SOURCES = _discover_assemblies()
+
+# Reads win over a pre-made assembly for the same sample, so a stale file in
+# data/input_assemblies/ cannot quietly shadow a genome the pipeline can assemble.
+_read_based = set(input_np_raw)
+_both = sorted(set(ASSEMBLY_SOURCES) & _read_based)
+for _name in _both:
+    del ASSEMBLY_SOURCES[_name]
+if _both:
+    print("NOTE: {} sample(s) have both reads and a pre-made assembly; "
+          "assembling from reads: {}{}".format(
+              len(_both), ", ".join(_both[:5]), " ..." if len(_both) > 5 else ""))
+
+IMPORTED_SAMPLES = sorted(ASSEMBLY_SOURCES)
+ALL_SAMPLES = sorted(_read_based | set(IMPORTED_SAMPLES))
+print("Input: {} sample(s) with reads, {} imported assembly/assemblies, "
+      "{} total.".format(len(input_np_raw), len(IMPORTED_SAMPLES), len(ALL_SAMPLES)))
+
+
+# ── Misplaced-input warnings ─────────────────────────────────────────────────
+# Both of these are the failure mode that motivated moving the import directory:
+# a genome sitting somewhere the pipeline does not look, producing no error and
+# no work. Neither aborts the run — they just make the situation impossible to
+# miss in the log.
+def _warn_misplaced_inputs():
+    if os.path.isdir("all_assemblies"):
+        legacy = sorted(f for f in os.listdir("all_assemblies") if f.endswith(".fa.gz"))
+        if legacy:
+            print("WARNING: {} assembly/assemblies found in the legacy directory "
+                  "all_assemblies/ — this location is NO LONGER READ. Move them to "
+                  "{}/ to have them processed: {}{}".format(
+                      len(legacy), IMPORT_DIR, ", ".join(legacy[:5]),
+                      " ..." if len(legacy) > 5 else ""))
+
+    if os.path.isdir("temp/all_assemblies"):
+        expected = set()
+        for name in ALL_SAMPLES:
+            expected.add(name + ".flye.fa.gz")
+            expected.add(name + ".assembly_info.txt")
+        stray = sorted(f for f in os.listdir("temp/all_assemblies") if f not in expected)
+        if stray:
+            print("WARNING: {} unrecognised file(s) in temp/all_assemblies/. That is a "
+                  "pipeline OUTPUT directory, not an input one: files placed there are "
+                  "picked up by gtdbtk's genome scan but by nothing else, so they are "
+                  "classified while never being QC'd, annotated or placed on the tree. "
+                  "Pre-made assemblies belong in {}/ as <sample>.fa.gz. Stray: {}{}".format(
+                      len(stray), IMPORT_DIR, ", ".join(stray[:5]),
+                      " ..." if len(stray) > 5 else ""))
+
+
+_warn_misplaced_inputs()
+
+
+def _only(names):
+    """Regex matching exactly these sample names, or nothing when empty."""
+    return "|".join(re.escape(n) for n in sorted(names)) if names else r"$^"
+
+
 # 1 metadata file
 
 # Output files
@@ -38,7 +129,10 @@ def passing_samples(wildcards):
             fields = f.readline().strip().split("\t")
             if len(fields) == 5 and fields[4] == "PASS":
                 passed.append(name)
-    return passed
+    # Imported assemblies have no reads to QC, so they skip this gate and enter
+    # at the assembly stage. They still face assembly_qc like everything else.
+    passed.extend(IMPORTED_SAMPLES)
+    return sorted(passed)
 
 
 def flye_outputs(wildcards):
@@ -140,7 +234,7 @@ rule all:
         "results/antismash_failures.tsv",
         "results/aggregated_results.tsv",
         "results/phylogenetic_tree.pdf"
-        
+
 rule filtlong_subset:
     input:
         "data/{sample}.fastq.gz"
@@ -214,12 +308,74 @@ rule qc_summary:
         """
 
 
+rule import_assembly:
+    # Bring a pre-made assembly from data/input_assemblies/ into
+    # temp/all_assemblies/ so it is indistinguishable from flye output
+    # downstream. Used for genomes whose reads are no longer available.
+    #
+    # flye also writes assembly_info.txt, which assembly_qc reads for contig
+    # count and total length and compile_results reads for genome size. There is
+    # no such file for an imported assembly, so an equivalent one is derived
+    # from the FASTA itself. Coverage and circularity are genuinely unknown and
+    # are recorded as NA rather than invented.
+    input:
+        asm = lambda wc: ASSEMBLY_SOURCES[wc.sample]
+    output:
+        asm     = "temp/all_assemblies/{sample}.flye.fa.gz",
+        asminfo = "temp/all_assemblies/{sample}.assembly_info.txt"
+    wildcard_constraints:
+        sample = _only(IMPORTED_SAMPLES)
+    threads: 1
+    resources:
+        mem_mb=2048,
+        node_type="general",
+        time="00-00:20:00",
+    log:
+        "logs/import_assembly/{sample}.log"
+    shell:
+        """
+        mkdir -p temp/all_assemblies logs/import_assembly
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== import_assembly {wildcards.sample} $(date -Is) ==="
+        echo "source: {input.asm}"
+
+        cp "{input.asm}" "{output.asm}"
+
+        zcat "{output.asm}" | awk -v OFS='\\t' '
+            /^>/ {{
+                if (n != "") print n, L, "NA", "N", "N", 1, "*", "*"
+                split(substr($0, 2), a, /[ \\t]/); n = a[1]; L = 0; next
+            }}
+            {{ L += length($0) }}
+            END {{
+                if (n != "") print n, L, "NA", "N", "N", 1, "*", "*"
+            }}
+        ' > "{output.asminfo}.body"
+
+        printf '#seq_name\\tlength\\tcov.\\tcirc.\\trepeat\\tmult.\\talt_group\\tgraph_path\\n' \
+            > "{output.asminfo}"
+        cat "{output.asminfo}.body" >> "{output.asminfo}"
+        rm -f "{output.asminfo}.body"
+
+        NCONTIG=$(($(wc -l < "{output.asminfo}") - 1))
+        TOTAL=$(awk -F'\\t' 'NR>1 {{s+=$2}} END {{print s+0}}' "{output.asminfo}")
+        echo "imported: $NCONTIG contigs, $TOTAL bp"
+        if [ "$NCONTIG" -lt 1 ] || [ "$TOTAL" -lt 1 ]; then
+            echo "ERROR: no sequence found in {input.asm}" >&2
+            exit 1
+        fi
+        """
+
+
 rule flye:
     input:
         NPreads="temp/filtered_reads/{sample}.filtlong.fastq.gz"
     output:
         asm="temp/all_assemblies/{sample}.flye.fa.gz",
         asminfo="temp/all_assemblies/{sample}.assembly_info.txt"
+    wildcard_constraints:
+        # Keeps flye and import_assembly from both matching the same target.
+        sample = _only(_read_based)
     threads: config["assembly_threads"]
     resources:
         mem_mb=config["assembly_mb"],
@@ -265,7 +421,7 @@ rule checkm2:
             --input "$TMP_DIR"/ \
             --output-directory {output}
         """
-        
+
 checkpoint assembly_qc:
     # Combines CheckM2 completeness/contamination with the flye contig count
     # and total assembly length into one PASS/FAIL verdict per sample.
@@ -366,8 +522,25 @@ rule assembly_qc_summary:
 
 
 rule gtdb:
+    # Taxonomic classification of every genome the pipeline is carrying —
+    # assembled and imported alike.
+    #
+    # Two things this rule used to get wrong, both of which mattered once
+    # imported genomes entered the picture:
+    #
+    #  1. It pointed --genome_dir straight at temp/all_assemblies/, so gtdbtk
+    #     classified whatever happened to be in that directory rather than the
+    #     genomes snakemake had actually declared as inputs. Leftovers from a
+    #     killed run, and hand-dropped files, were classified while being absent
+    #     from every other stage. The declared inputs are now staged into
+    #     temp/gtdbtk_in/ as symlinks — the same pattern stage_tree_genomes
+    #     already uses — so {input} and --genome_dir cannot disagree.
+    #
+    #  2. It never cleared its own output directory. Adding a genome makes this
+    #     rule rerun, and classify_wf refuses a non-empty --out_dir, so the
+    #     rerun died on a directory the previous successful run had created.
     input:
-        flye_outputs,
+        assemblies = flye_outputs,
     output:
         directory("temp/gtdbtk_out")
     threads: 32
@@ -380,14 +553,37 @@ rule gtdb:
         "envs/env_gtdbtk.yml"
     params:
         db=config.get("gtdb_db")
+    log:
+        "logs/gtdb.log"
     shell:
         """
+        mkdir -p logs temp
+        exec > >(tee -a "{log}") 2>&1
+        echo "=== gtdb classify_wf started $(date -Is) ==="
+
         export GTDBTK_DATA_PATH="{params.db}"
+
+        rm -rf temp/gtdbtk_in {output}
+        mkdir -p temp/gtdbtk_in
+        for f in {input.assemblies}; do
+            ln -s "$(readlink -f "$f")" "temp/gtdbtk_in/$(basename "$f")"
+        done
+
+        N_GENOMES=$(ls temp/gtdbtk_in | wc -l)
+        echo "classifying $N_GENOMES genomes"
+        if [ "$N_GENOMES" -lt 1 ]; then
+            echo "ERROR: no genomes staged for classification." >&2
+            exit 1
+        fi
+
         gtdbtk classify_wf \
-        --genome_dir "temp/all_assemblies/" \
-        --out_dir {output} \
-        --cpus {threads} \
-        --extension fa.gz
+            --genome_dir temp/gtdbtk_in \
+            --out_dir {output} \
+            --cpus {threads} \
+            --extension fa.gz
+
+        rm -rf temp/gtdbtk_in
+        echo "=== gtdb classify_wf finished $(date -Is) ==="
         """
 
 rule prokka:
@@ -418,7 +614,7 @@ rule prokka:
         # Clean up the temporary unzipped file
         rm "temp/prokka_out/{wildcards.sample}_temp.fa"
         """
-        
+
 rule bakta:
     input:
         asm="temp/all_assemblies/{sample}.flye.fa.gz",
@@ -447,7 +643,7 @@ rule bakta:
         
         rm "temp/{wildcards.sample}_temp.fa"
         """
-        
+
 rule antismash:
     input:
         rules.bakta.output
@@ -607,7 +803,7 @@ rule antismash_processing:
         "envs/env_antismash_processing.yaml"
     script:
         "scripts/process_antismash.R"
-        
+
 # ── bac120 alignment for the tree ────────────────────────────────────────────
 # NOT reused from rule gtdb. `classify_wf` runs a skani ANI pre-screen and then
 # REMOVES every genome that got a species-level ANI match from the identify
@@ -980,7 +1176,7 @@ rule compile_results:
         "envs/R-main.yaml"
     script:
         "scripts/compile_results.R"
-        
+
 rule plot_tree:
     input:
         tree     = TREE_FILE,
